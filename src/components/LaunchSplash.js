@@ -22,24 +22,24 @@ export default function LaunchSplash() {
     Animated.sequence([
       // 1 — fall in with a natural bounce landing
       Animated.parallel([
-        Animated.timing(iconOpacity, { toValue: 1, duration: 160, useNativeDriver: true }),
-        Animated.timing(iconScale, { toValue: 1, duration: 300, easing: Easing.out(Easing.cubic), useNativeDriver: true }),
-        Animated.timing(iconY, { toValue: 0, duration: 820, easing: Easing.bounce, useNativeDriver: true }),
+        Animated.timing(iconOpacity, { toValue: 1, duration: 140, useNativeDriver: true }),
+        Animated.timing(iconScale, { toValue: 1, duration: 260, easing: Easing.out(Easing.cubic), useNativeDriver: true }),
+        Animated.timing(iconY, { toValue: 0, duration: 640, easing: Easing.bounce, useNativeDriver: true }),
       ]),
       // 2 — wordmark rises in while the icon gives a gentle wiggle
       Animated.parallel([
-        Animated.timing(wordOpacity, { toValue: 1, duration: 360, useNativeDriver: true }),
-        Animated.timing(wordY, { toValue: 0, duration: 400, easing: Easing.out(Easing.cubic), useNativeDriver: true }),
+        Animated.timing(wordOpacity, { toValue: 1, duration: 280, useNativeDriver: true }),
+        Animated.timing(wordY, { toValue: 0, duration: 320, easing: Easing.out(Easing.cubic), useNativeDriver: true }),
         Animated.sequence([
-          Animated.timing(iconRot, { toValue: 1, duration: 110, easing: Easing.out(Easing.quad), useNativeDriver: true }),
-          Animated.timing(iconRot, { toValue: -1, duration: 130, easing: Easing.inOut(Easing.quad), useNativeDriver: true }),
-          Animated.timing(iconRot, { toValue: 0.5, duration: 110, easing: Easing.inOut(Easing.quad), useNativeDriver: true }),
-          Animated.timing(iconRot, { toValue: 0, duration: 120, easing: Easing.out(Easing.quad), useNativeDriver: true }),
+          Animated.timing(iconRot, { toValue: 1, duration: 90, easing: Easing.out(Easing.quad), useNativeDriver: true }),
+          Animated.timing(iconRot, { toValue: -1, duration: 110, easing: Easing.inOut(Easing.quad), useNativeDriver: true }),
+          Animated.timing(iconRot, { toValue: 0.5, duration: 90, easing: Easing.inOut(Easing.quad), useNativeDriver: true }),
+          Animated.timing(iconRot, { toValue: 0, duration: 100, easing: Easing.out(Easing.quad), useNativeDriver: true }),
         ]),
       ]),
-      // 3 — hold, then reveal the app
-      Animated.delay(260),
-      Animated.timing(overlay, { toValue: 0, duration: 340, easing: Easing.in(Easing.cubic), useNativeDriver: true }),
+      // 3 — brief hold, then reveal the app
+      Animated.delay(120),
+      Animated.timing(overlay, { toValue: 0, duration: 260, easing: Easing.in(Easing.cubic), useNativeDriver: true }),
     ]).start(() => setDone(true));
   }, []);
 

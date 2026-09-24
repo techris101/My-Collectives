@@ -16,9 +16,10 @@ const AppContext = createContext(null);
 export const useApp = () => useContext(AppContext);
 
 const MAX_VIDEOS = 4000;
-const FIRST_PAGE = 240; // enough to start the reel instantly
-const PAGE = 500; // background pages after that
+const FIRST_PAGE = 24; // tiny first page so the reel starts almost instantly
+const PAGE = 800; // background pages after that
 const MAX_ALBUMS = 80;
+const DEFER_MS = 1200; // let the first clip start before the heavy scan
 
 // Map an expo-media-library permission response to our simple states.
 function mapPermission(res) {
@@ -94,14 +95,16 @@ export function AppProvider({ children }) {
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, []);
 
-  // ---- library loading (staged: fast first page, rest in background) ----
+  // ---- library loading ----
+  // Blazing first play: grab a tiny unsorted first page (a few ms), start the
+  // reel, THEN — after the first clip is already playing — scan the rest of the
+  // library in one background pass and seamlessly extend the reel.
   const loadLibrary = useCallback(async (resetFeed = false) => {
     setLoadingLibrary(true);
     try {
       const first = await MediaLibrary.getAssetsAsync({
         mediaType: MediaLibrary.MediaType.video,
         first: FIRST_PAGE,
-        sortBy: [[MediaLibrary.SortBy.creationTime, false]],
       });
       const initial = first.assets || [];
       setVideos(initial);
@@ -115,35 +118,54 @@ export function AppProvider({ children }) {
       }
       setLoadingLibrary(false);
 
-      // Background: pull the remaining videos, then compute collections.
-      (async () => {
-        let all = initial;
-        let cursor = first.endCursor;
-        let hasNext = first.hasNextPage;
-        while (hasNext && all.length < MAX_VIDEOS) {
-          try {
-            const page = await MediaLibrary.getAssetsAsync({
-              mediaType: MediaLibrary.MediaType.video,
-              first: PAGE,
-              after: cursor,
-              sortBy: [[MediaLibrary.SortBy.creationTime, false]],
-            });
-            all = all.concat(page.assets || []);
-            cursor = page.endCursor;
-            hasNext = page.hasNextPage;
-            setVideos([...all]);
-          } catch (e) {
-            break;
-          }
-        }
-        loadAlbums();
-      })();
+      // Defer the heavy scan so it doesn't compete with the first clip.
+      setTimeout(() => {
+        loadRest(initial, first.endCursor, first.hasNextPage, resetFeed);
+      }, DEFER_MS);
     } catch (e) {
       setVideos([]);
       setLoadingLibrary(false);
     }
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, []);
+
+  const loadRest = useCallback(
+    async (initial, cursor, hasNext, extendFeed) => {
+      let all = initial;
+      while (hasNext && all.length < MAX_VIDEOS) {
+        try {
+          const page = await MediaLibrary.getAssetsAsync({
+            mediaType: MediaLibrary.MediaType.video,
+            first: PAGE,
+            after: cursor,
+          });
+          all = all.concat(page.assets || []);
+          cursor = page.endCursor;
+          hasNext = page.hasNextPage;
+        } catch (e) {
+          break;
+        }
+      }
+      // One state update: sort by recency for the library grid.
+      const sorted = [...all].sort((a, b) => (b.creationTime || 0) - (a.creationTime || 0));
+      setVideos(sorted);
+
+      // Grow the "For You" reel with everything we didn't already queue.
+      if (extendFeed) {
+        setFeed((prev) => {
+          if (prev.source?.type !== 'all') return prev;
+          const have = new Set(prev.assets.map((x) => x.id));
+          const extra = shuffleArray(sorted.filter((v) => !have.has(v.id)));
+          if (extra.length === 0) return prev;
+          return { ...prev, assets: [...prev.assets, ...extra] };
+        });
+      }
+
+      loadAlbums();
+    },
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+    []
+  );
 
   const loadAlbums = useCallback(async () => {
     try {
