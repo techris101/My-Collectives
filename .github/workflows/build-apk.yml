@@ -37,11 +37,17 @@ jobs:
           CI: "1"
           EXPO_NO_TELEMETRY: "1"
 
+      - name: Restrict native libs to arm64-v8a
+        run: |
+          sed -i '/defaultConfig {/a\        ndk { abiFilters "arm64-v8a" }' android/app/build.gradle
+          echo "--- defaultConfig block ---"
+          grep -n -A3 "defaultConfig {" android/app/build.gradle
+
       - name: Build release APK (arm64 only, minified)
         run: |
           cd android
           chmod +x ./gradlew
-          ./gradlew assembleRelease --no-daemon --console=plain -PreactNativeArchitectures=arm64-v8a
+          ./gradlew assembleRelease --no-daemon --console=plain
 
       - name: Report APK size
         run: ls -lh android/app/build/outputs/apk/release/
