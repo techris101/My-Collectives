@@ -11,6 +11,7 @@ import LibraryScreen from './src/screens/LibraryScreen';
 import FavoritesScreen from './src/screens/FavoritesScreen';
 import SettingsScreen from './src/screens/SettingsScreen';
 import TabBar from './src/components/TabBar';
+import LaunchSplash from './src/components/LaunchSplash';
 
 function Root() {
   const { booting, permission, seenOnboarding, tab } = useApp();
@@ -55,7 +56,10 @@ export default function App() {
   return (
     <SafeAreaProvider>
       <AppProvider>
-        <Root />
+        <View style={styles.app}>
+          <Root />
+          <LaunchSplash />
+        </View>
       </AppProvider>
     </SafeAreaProvider>
   );
