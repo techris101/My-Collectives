@@ -1,8 +1,7 @@
 import React, { useRef } from 'react';
-import { Pressable, Text, View, StyleSheet, Animated } from 'react-native';
-import { LinearGradient } from 'expo-linear-gradient';
+import { Pressable, Text, StyleSheet, Animated } from 'react-native';
 import { Ionicons } from '@expo/vector-icons';
-import { colors, radius, brandGradient, type, shadow, spacing } from '../theme';
+import { colors, radius, type } from '../theme';
 
 // Pressable that scales down slightly on press for a tactile feel.
 export function Tappable({ children, onPress, onLongPress, style, scaleTo = 0.96, disabled, hitSlop }) {
@@ -23,18 +22,12 @@ export function Tappable({ children, onPress, onLongPress, style, scaleTo = 0.96
   );
 }
 
-export function GradientButton({ label, icon, onPress, style, small }) {
+// Primary CTA — solid white on black, black label. The one high-contrast moment.
+export function PrimaryButton({ label, icon, onPress, style, small }) {
   return (
-    <Tappable onPress={onPress} style={style} scaleTo={0.97}>
-      <LinearGradient
-        colors={brandGradient}
-        start={{ x: 0, y: 0 }}
-        end={{ x: 1, y: 1 }}
-        style={[styles.gbtn, small && styles.gbtnSmall, shadow.glow]}
-      >
-        {icon ? <Ionicons name={icon} size={small ? 18 : 20} color={colors.white} style={{ marginRight: 8 }} /> : null}
-        <Text style={[styles.gbtnText, small && { fontSize: 15 }]}>{label}</Text>
-      </LinearGradient>
+    <Tappable onPress={onPress} style={[styles.primary, small && styles.primarySmall, style]} scaleTo={0.97}>
+      {icon ? <Ionicons name={icon} size={small ? 17 : 19} color={colors.black} style={{ marginRight: 8 }} /> : null}
+      <Text style={[styles.primaryText, small && { fontSize: 15 }]}>{label}</Text>
     </Tappable>
   );
 }
@@ -57,25 +50,12 @@ export function IconButton({ icon, onPress, size = 22, color = colors.text, styl
 }
 
 export function Chip({ label, active, onPress, icon }) {
-  if (active) {
-    return (
-      <Tappable onPress={onPress} scaleTo={0.95} style={{ marginRight: 10 }}>
-        <LinearGradient
-          colors={brandGradient}
-          start={{ x: 0, y: 0 }}
-          end={{ x: 1, y: 0 }}
-          style={styles.chipActive}
-        >
-          {icon ? <Ionicons name={icon} size={14} color={colors.white} style={{ marginRight: 6 }} /> : null}
-          <Text style={styles.chipActiveText}>{label}</Text>
-        </LinearGradient>
-      </Tappable>
-    );
-  }
   return (
-    <Tappable onPress={onPress} scaleTo={0.95} style={[styles.chip, { marginRight: 10 }]}>
-      {icon ? <Ionicons name={icon} size={14} color={colors.textDim} style={{ marginRight: 6 }} /> : null}
-      <Text style={styles.chipText}>{label}</Text>
+    <Tappable onPress={onPress} scaleTo={0.95} style={[active ? styles.chipActive : styles.chip, { marginRight: 10 }]}>
+      {icon ? (
+        <Ionicons name={icon} size={14} color={active ? colors.black : colors.textDim} style={{ marginRight: 6 }} />
+      ) : null}
+      <Text style={active ? styles.chipActiveText : styles.chipText}>{label}</Text>
     </Tappable>
   );
 }
@@ -85,16 +65,17 @@ export function SectionLabel({ children, style }) {
 }
 
 const styles = StyleSheet.create({
-  gbtn: {
+  primary: {
     flexDirection: 'row',
     alignItems: 'center',
     justifyContent: 'center',
     paddingVertical: 16,
     paddingHorizontal: 24,
     borderRadius: radius.pill,
+    backgroundColor: colors.white,
   },
-  gbtnSmall: { paddingVertical: 11, paddingHorizontal: 18 },
-  gbtnText: { color: colors.white, fontWeight: '800', fontSize: 16, letterSpacing: 0.2 },
+  primarySmall: { paddingVertical: 11, paddingHorizontal: 18 },
+  primaryText: { color: colors.black, fontWeight: '800', fontSize: 16, letterSpacing: 0.1 },
   ghost: {
     flexDirection: 'row',
     alignItems: 'center',
@@ -113,7 +94,7 @@ const styles = StyleSheet.create({
     borderRadius: 22,
     alignItems: 'center',
     justifyContent: 'center',
-    backgroundColor: colors.surface,
+    backgroundColor: 'rgba(0,0,0,0.35)',
     borderWidth: 1,
     borderColor: colors.hairline,
   },
@@ -123,7 +104,7 @@ const styles = StyleSheet.create({
     paddingVertical: 9,
     paddingHorizontal: 16,
     borderRadius: radius.pill,
-    backgroundColor: colors.surface,
+    backgroundColor: 'transparent',
     borderWidth: 1,
     borderColor: colors.hairline,
   },
@@ -134,6 +115,7 @@ const styles = StyleSheet.create({
     paddingVertical: 9,
     paddingHorizontal: 16,
     borderRadius: radius.pill,
+    backgroundColor: colors.white,
   },
-  chipActiveText: { color: colors.white, fontWeight: '800', fontSize: 13.5 },
+  chipActiveText: { color: colors.black, fontWeight: '800', fontSize: 13.5 },
 });

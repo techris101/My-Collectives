@@ -1,61 +1,44 @@
 import React, { useCallback, useRef, useState, useEffect } from 'react';
-import {
-  View,
-  Text,
-  StyleSheet,
-  FlatList,
-  useWindowDimensions,
-  Modal,
-  Pressable,
-  ScrollView,
-} from 'react-native';
+import { View, Text, StyleSheet, FlatList, Modal, Pressable, ScrollView } from 'react-native';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
-import { LinearGradient } from 'expo-linear-gradient';
 import { Ionicons } from '@expo/vector-icons';
 import { useApp } from '../context/AppContext';
 import VideoItem from '../components/VideoItem';
 import { colors, radius } from '../theme';
-import { IconButton } from '../components/ui';
+import { IconButton, PrimaryButton } from '../components/ui';
 import { prettyName, formatDuration } from '../lib/format';
 
-const TAB_SPACE = 78;
+const TAB_H = 62; // matches the bottom TabBar content height
+// Only mount video players for items within this many steps of the active one.
+const WINDOW = 2;
 
 export default function FeedScreen() {
-  const { height, width } = useWindowDimensions();
   const insets = useSafeAreaInsets();
-  const {
-    feed,
-    settings,
-    updateSettings,
-    isFavorite,
-    toggleFavorite,
-    reshuffle,
-    haptic,
-  } = useApp();
+  const { feed, settings, updateSettings, isFavorite, toggleFavorite, reshuffle, haptic } = useApp();
 
   const [activeIndex, setActiveIndex] = useState(feed.startIndex || 0);
   const [globalMuted, setGlobalMuted] = useState(settings.startMuted);
   const [infoAsset, setInfoAsset] = useState(null);
+  const [viewportH, setViewportH] = useState(0);
   const listRef = useRef(null);
 
-  const pageHeight = height;
-  const bottomInset = TAB_SPACE + insets.bottom * 0.4;
+  const bottomInset = TAB_H + insets.bottom;
 
   // Keep the active (playing) item in sync when the source/shuffle changes.
   useEffect(() => {
     setActiveIndex(feed.startIndex || 0);
   }, [feed.seed]);
 
-  const viewConfig = useRef({ itemVisiblePercentThreshold: 80 }).current;
+  const viewConfig = useRef({ itemVisiblePercentThreshold: 60 }).current;
   const onViewable = useRef(({ viewableItems }) => {
-    if (viewableItems && viewableItems.length > 0) {
-      setActiveIndex(viewableItems[0].index ?? 0);
+    if (viewableItems && viewableItems.length > 0 && viewableItems[0].index != null) {
+      setActiveIndex(viewableItems[0].index);
     }
   }).current;
 
   const getItemLayout = useCallback(
-    (_, index) => ({ length: pageHeight, offset: pageHeight * index, index }),
-    [pageHeight]
+    (_, index) => ({ length: viewportH, offset: viewportH * index, index }),
+    [viewportH]
   );
 
   const toggleMute = useCallback(() => {
@@ -67,60 +50,70 @@ export default function FeedScreen() {
   }, [haptic, updateSettings]);
 
   const renderItem = useCallback(
-    ({ item, index }) => (
-      <VideoItem
-        asset={item}
-        height={pageHeight}
-        active={index === activeIndex}
-        globalMuted={globalMuted}
-        loop={settings.loop}
-        liked={isFavorite(item.id)}
-        collectionTitle={feed.source?.title}
-        bottomInset={bottomInset}
-        onToggleMute={toggleMute}
-        onToggleLike={() => toggleFavorite(item.id)}
-        onShuffle={reshuffle}
-        onOpenInfo={() => setInfoAsset(item)}
-      />
-    ),
-    [pageHeight, activeIndex, globalMuted, settings.loop, isFavorite, feed.source, bottomInset, toggleMute, toggleFavorite, reshuffle]
+    ({ item, index }) => {
+      const distance = Math.abs(index - activeIndex);
+      // Outside the window: cheap black spacer — no video player in memory.
+      if (distance > WINDOW) {
+        return <View style={{ height: viewportH, backgroundColor: colors.black }} />;
+      }
+      return (
+        <VideoItem
+          asset={item}
+          height={viewportH}
+          active={index === activeIndex}
+          globalMuted={globalMuted}
+          loop={settings.loop}
+          liked={isFavorite(item.id)}
+          collectionTitle={feed.source?.title}
+          bottomInset={bottomInset}
+          onToggleMute={toggleMute}
+          onToggleLike={() => toggleFavorite(item.id)}
+          onShuffle={reshuffle}
+          onOpenInfo={() => setInfoAsset(item)}
+        />
+      );
+    },
+    [activeIndex, viewportH, globalMuted, settings.loop, isFavorite, feed.source, bottomInset, toggleMute, toggleFavorite, reshuffle]
   );
 
-  if (!feed.assets || feed.assets.length === 0) {
-    return <EmptyFeed insets={insets} />;
-  }
+  const empty = !feed.assets || feed.assets.length === 0;
 
   return (
-    <View style={styles.container}>
-      <FlatList
-        key={feed.seed}
-        ref={listRef}
-        data={feed.assets}
-        keyExtractor={(item, i) => `${item.id}-${i}`}
-        renderItem={renderItem}
-        pagingEnabled
-        showsVerticalScrollIndicator={false}
-        getItemLayout={getItemLayout}
-        initialScrollIndex={Math.min(feed.startIndex || 0, feed.assets.length - 1)}
-        windowSize={3}
-        maxToRenderPerBatch={2}
-        initialNumToRender={1}
-        removeClippedSubviews
-        decelerationRate="fast"
-        onViewableItemsChanged={onViewable}
-        viewabilityConfig={viewConfig}
-      />
+    <View style={styles.container} onLayout={(e) => setViewportH(e.nativeEvent.layout.height)}>
+      {empty ? (
+        <EmptyFeed insets={insets} />
+      ) : viewportH > 0 ? (
+        <FlatList
+          key={`${feed.seed}-${viewportH}`}
+          ref={listRef}
+          data={feed.assets}
+          keyExtractor={(item, i) => `${item.id}-${i}`}
+          renderItem={renderItem}
+          pagingEnabled
+          showsVerticalScrollIndicator={false}
+          getItemLayout={getItemLayout}
+          initialScrollIndex={Math.min(feed.startIndex || 0, feed.assets.length - 1)}
+          windowSize={7}
+          maxToRenderPerBatch={3}
+          initialNumToRender={2}
+          removeClippedSubviews={false}
+          decelerationRate="fast"
+          onViewableItemsChanged={onViewable}
+          viewabilityConfig={viewConfig}
+        />
+      ) : null}
 
-      {/* Top overlay */}
-      <View style={[styles.topBar, { top: insets.top + 6 }]} pointerEvents="box-none">
-        <View style={styles.topLeft}>
-          <Text style={styles.brand}>My<Text style={{ color: colors.violet }}>Collectives</Text></Text>
-          <Text style={styles.nowPlaying} numberOfLines={1}>
-            {feed.source?.title || 'For You'} · {activeIndex + 1}/{feed.assets.length}
-          </Text>
+      {!empty ? (
+        <View style={[styles.topBar, { top: insets.top + 8 }]} pointerEvents="box-none">
+          <View style={styles.topLeft}>
+            <Text style={styles.brand}>MyCollectives</Text>
+            <Text style={styles.nowPlaying} numberOfLines={1}>
+              {feed.source?.title || 'For You'} · {activeIndex + 1}/{feed.assets.length}
+            </Text>
+          </View>
+          <IconButton icon="shuffle" onPress={reshuffle} />
         </View>
-        <IconButton icon="shuffle" onPress={reshuffle} />
-      </View>
+      ) : null}
 
       <InfoSheet
         asset={infoAsset}
@@ -136,23 +129,17 @@ export default function FeedScreen() {
 function EmptyFeed({ insets }) {
   const { refresh, loadingLibrary, setTab } = useApp();
   return (
-    <View style={[styles.empty, { paddingTop: insets.top + 40 }]}>
-      <LinearGradient
-        colors={['rgba(139,92,246,0.25)', 'rgba(236,72,153,0.12)']}
-        style={styles.emptyOrb}
-      >
-        <Ionicons name="film-outline" size={46} color={colors.white} />
-      </LinearGradient>
-      <Text style={styles.emptyTitle}>No clips in this collection yet</Text>
+    <View style={[styles.empty, { paddingTop: insets.top + 60 }]}>
+      <View style={styles.emptyOrb}>
+        <Ionicons name="film-outline" size={40} color={colors.textDim} />
+      </View>
+      <Text style={styles.emptyTitle}>Nothing to play yet</Text>
       <Text style={styles.emptyText}>
-        Record or download a few videos, then pull them into your reel. Everything stays on your device.
+        Add a few videos to your device, then pull them into your reel. Everything stays offline.
       </Text>
-      <Pressable style={styles.emptyBtn} onPress={() => setTab('library')}>
-        <Ionicons name="albums-outline" size={18} color={colors.white} />
-        <Text style={styles.emptyBtnText}>Browse collections</Text>
-      </Pressable>
+      <PrimaryButton label="Browse library" icon="grid-outline" onPress={() => setTab('library')} style={{ marginTop: 26 }} />
       <Pressable style={styles.emptyLink} onPress={refresh}>
-        <Text style={styles.emptyLinkText}>{loadingLibrary ? 'Refreshing…' : 'Refresh library'}</Text>
+        <Text style={styles.emptyLinkText}>{loadingLibrary ? 'Scanning…' : 'Rescan device'}</Text>
       </Pressable>
     </View>
   );
@@ -160,15 +147,15 @@ function EmptyFeed({ insets }) {
 
 function InfoSheet({ asset, liked, onToggleLike, onClose, insets }) {
   if (!asset) return null;
-  const created = asset.creationTime ? new Date(asset.creationTime).toLocaleDateString(undefined, {
-    year: 'numeric', month: 'short', day: 'numeric',
-  }) : '—';
+  const created = asset.creationTime
+    ? new Date(asset.creationTime).toLocaleDateString(undefined, { year: 'numeric', month: 'short', day: 'numeric' })
+    : '—';
   const rows = [
-    { icon: 'text', label: 'Name', value: prettyName(asset.filename) },
-    { icon: 'time-outline', label: 'Duration', value: formatDuration(asset.duration) },
-    { icon: 'resize-outline', label: 'Resolution', value: `${asset.width} × ${asset.height}` },
-    { icon: 'calendar-outline', label: 'Created', value: created },
-    { icon: 'document-outline', label: 'File', value: asset.filename },
+    { label: 'Name', value: prettyName(asset.filename) },
+    { label: 'Duration', value: formatDuration(asset.duration) },
+    { label: 'Resolution', value: `${asset.width} × ${asset.height}` },
+    { label: 'Created', value: created },
+    { label: 'File', value: asset.filename },
   ];
   return (
     <Modal visible transparent animationType="slide" onRequestClose={onClose}>
@@ -176,20 +163,17 @@ function InfoSheet({ asset, liked, onToggleLike, onClose, insets }) {
       <View style={[styles.sheet, { paddingBottom: insets.bottom + 20 }]}>
         <View style={styles.sheetHandle} />
         <Text style={styles.sheetTitle}>Clip details</Text>
-        <ScrollView style={{ maxHeight: 320 }}>
+        <ScrollView style={{ maxHeight: 300 }}>
           {rows.map((r) => (
             <View key={r.label} style={styles.infoRow}>
-              <Ionicons name={r.icon} size={18} color={colors.violet} style={{ width: 26 }} />
               <Text style={styles.infoLabel}>{r.label}</Text>
               <Text style={styles.infoValue} numberOfLines={2}>{r.value}</Text>
             </View>
           ))}
         </ScrollView>
-        <Pressable style={[styles.sheetAction, liked && { backgroundColor: 'rgba(255,59,107,0.16)', borderColor: 'rgba(255,59,107,0.4)' }]} onPress={onToggleLike}>
-          <Ionicons name={liked ? 'heart' : 'heart-outline'} size={20} color={liked ? colors.like : colors.text} />
-          <Text style={[styles.sheetActionText, liked && { color: colors.like }]}>
-            {liked ? 'In your favorites' : 'Add to favorites'}
-          </Text>
+        <Pressable style={styles.sheetAction} onPress={onToggleLike}>
+          <Ionicons name={liked ? 'heart' : 'heart-outline'} size={20} color={colors.text} />
+          <Text style={styles.sheetActionText}>{liked ? 'Remove from favorites' : 'Add to favorites'}</Text>
         </Pressable>
       </View>
     </Modal>
@@ -209,52 +193,38 @@ const styles = StyleSheet.create({
   topLeft: { flex: 1, marginRight: 12 },
   brand: {
     color: colors.white,
-    fontSize: 20,
-    fontWeight: '900',
-    letterSpacing: -0.4,
-    textShadowColor: 'rgba(0,0,0,0.5)',
+    fontSize: 19,
+    fontWeight: '800',
+    letterSpacing: -0.3,
+    textShadowColor: 'rgba(0,0,0,0.8)',
     textShadowRadius: 6,
   },
   nowPlaying: {
-    color: 'rgba(255,255,255,0.82)',
+    color: 'rgba(255,255,255,0.72)',
     fontSize: 12.5,
-    fontWeight: '700',
+    fontWeight: '600',
     marginTop: 3,
-    textShadowColor: 'rgba(0,0,0,0.6)',
-    textShadowRadius: 4,
+    textShadowColor: 'rgba(0,0,0,0.8)',
+    textShadowRadius: 5,
   },
   empty: { flex: 1, backgroundColor: colors.bg, alignItems: 'center', paddingHorizontal: 32 },
   emptyOrb: {
-    width: 108,
-    height: 108,
-    borderRadius: 54,
+    width: 96,
+    height: 96,
+    borderRadius: 48,
     alignItems: 'center',
     justifyContent: 'center',
-    marginBottom: 26,
+    borderWidth: 1,
+    borderColor: colors.hairline,
+    backgroundColor: colors.surface,
+    marginBottom: 24,
   },
   emptyTitle: { color: colors.text, fontSize: 21, fontWeight: '800', textAlign: 'center' },
-  emptyText: {
-    color: colors.textDim,
-    fontSize: 14.5,
-    lineHeight: 21,
-    textAlign: 'center',
-    marginTop: 10,
-  },
-  emptyBtn: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    gap: 8,
-    backgroundColor: colors.violet,
-    paddingHorizontal: 22,
-    paddingVertical: 14,
-    borderRadius: radius.pill,
-    marginTop: 26,
-  },
-  emptyBtnText: { color: colors.white, fontWeight: '800', fontSize: 15 },
+  emptyText: { color: colors.textDim, fontSize: 14.5, lineHeight: 21, textAlign: 'center', marginTop: 10 },
   emptyLink: { marginTop: 16, padding: 8 },
   emptyLinkText: { color: colors.textDim, fontWeight: '700', fontSize: 14 },
 
-  sheetBackdrop: { flex: 1, backgroundColor: 'rgba(0,0,0,0.55)' },
+  sheetBackdrop: { flex: 1, backgroundColor: 'rgba(0,0,0,0.6)' },
   sheet: {
     backgroundColor: colors.bgElevated,
     borderTopLeftRadius: radius.xl,
@@ -265,22 +235,22 @@ const styles = StyleSheet.create({
     borderColor: colors.hairline,
   },
   sheetHandle: {
-    width: 44,
+    width: 40,
     height: 5,
     borderRadius: 3,
     backgroundColor: colors.hairlineStrong,
     alignSelf: 'center',
     marginBottom: 16,
   },
-  sheetTitle: { color: colors.text, fontSize: 20, fontWeight: '800', marginBottom: 14 },
+  sheetTitle: { color: colors.text, fontSize: 19, fontWeight: '800', marginBottom: 12 },
   infoRow: {
     flexDirection: 'row',
     alignItems: 'center',
-    paddingVertical: 12,
-    borderBottomWidth: 1,
+    paddingVertical: 13,
+    borderBottomWidth: StyleSheet.hairlineWidth,
     borderColor: colors.hairline,
   },
-  infoLabel: { color: colors.textDim, fontSize: 14, fontWeight: '600', width: 92 },
+  infoLabel: { color: colors.textMuted, fontSize: 14, fontWeight: '600', width: 96 },
   infoValue: { color: colors.text, fontSize: 14, fontWeight: '600', flex: 1, textAlign: 'right' },
   sheetAction: {
     flexDirection: 'row',

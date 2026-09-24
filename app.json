@@ -7,24 +7,23 @@
     "scheme": "mycollectives",
     "userInterfaceStyle": "dark",
     "icon": "./assets/icon.png",
-    "backgroundColor": "#0A0A0F",
+    "backgroundColor": "#000000",
     "splash": {
       "image": "./assets/splash.png",
       "resizeMode": "contain",
-      "backgroundColor": "#0A0A0F"
+      "backgroundColor": "#000000"
     },
     "assetBundlePatterns": ["**/*"],
     "android": {
       "package": "com.techris.mycollectives",
-      "versionCode": 1,
-      "backgroundColor": "#0A0A0F",
+      "versionCode": 2,
+      "backgroundColor": "#000000",
       "adaptiveIcon": {
         "foregroundImage": "./assets/adaptive-icon.png",
-        "backgroundColor": "#0A0A0F"
+        "backgroundColor": "#000000"
       },
       "permissions": [
         "android.permission.READ_MEDIA_VIDEO",
-        "android.permission.READ_MEDIA_IMAGES",
         "android.permission.READ_EXTERNAL_STORAGE"
       ]
     },
@@ -35,6 +34,16 @@
           "photosPermission": "MyCollectives needs access to your library to build your personal video reel.",
           "videosPermission": "MyCollectives plays videos straight from your own library, fully offline.",
           "isAccessMediaLocationEnabled": true
+        }
+      ],
+      [
+        "expo-build-properties",
+        {
+          "android": {
+            "enableProguardInReleaseBuilds": true,
+            "enableShrinkResourcesInReleaseBuilds": true,
+            "extraProguardRules": "-keep class com.google.android.exoplayer2.** { *; }\n-dontwarn com.google.android.exoplayer2.**\n-keep class expo.modules.** { *; }\n-keep class com.facebook.hermes.** { *; }\n-keep class com.facebook.jni.** { *; }"
+          }
         }
       ]
     ]

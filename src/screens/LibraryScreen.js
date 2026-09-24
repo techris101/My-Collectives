@@ -1,20 +1,18 @@
-import React, { useMemo } from 'react';
+import React from 'react';
 import {
   View,
   Text,
   StyleSheet,
   FlatList,
-  Pressable,
   ScrollView,
   RefreshControl,
   useWindowDimensions,
 } from 'react-native';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
-import { LinearGradient } from 'expo-linear-gradient';
 import { Ionicons } from '@expo/vector-icons';
 import { useApp } from '../context/AppContext';
 import Thumb from '../components/Thumb';
-import { colors, radius, brandGradient } from '../theme';
+import { colors, radius } from '../theme';
 import { SectionLabel, Tappable } from '../components/ui';
 import { formatCount } from '../lib/format';
 
@@ -35,48 +33,54 @@ export default function LibraryScreen() {
     playSource({ type: 'ordered', title: 'Library' }, index);
   };
 
+  const QuickCard = ({ icon, title, sub, onPress }) => (
+    <Tappable style={{ flex: 1 }} onPress={onPress} scaleTo={0.97}>
+      <View style={styles.quickCard}>
+        <Ionicons name={icon} size={20} color={colors.white} />
+        <Text style={styles.quickTitle}>{title}</Text>
+        <Text style={styles.quickSub}>{sub}</Text>
+      </View>
+    </Tappable>
+  );
+
   const Header = (
     <View>
-      <Text style={styles.h1}>Your Library</Text>
+      <Text style={styles.h1}>Library</Text>
       <Text style={styles.sub}>
-        {formatCount(videos.length)} clips · {formatCount(albums.length)} collections · offline
+        {formatCount(videos.length)} clips · {formatCount(albums.length)} collections
       </Text>
 
-      {/* Quick collections */}
       <View style={styles.quickRow}>
-        <Tappable style={{ flex: 1 }} onPress={() => playSource({ type: 'all', title: 'For You' })} scaleTo={0.97}>
-          <LinearGradient colors={brandGradient} start={{ x: 0, y: 0 }} end={{ x: 1, y: 1 }} style={styles.quickCard}>
-            <Ionicons name="sparkles" size={22} color={colors.white} />
-            <Text style={styles.quickTitle}>For You</Text>
-            <Text style={styles.quickSub}>{formatCount(videos.length)} shuffled</Text>
-          </LinearGradient>
-        </Tappable>
-        <Tappable style={{ flex: 1 }} onPress={() => playSource({ type: 'favorites', title: 'Favorites' })} scaleTo={0.97}>
-          <View style={[styles.quickCard, styles.quickCardAlt]}>
-            <Ionicons name="heart" size={22} color={colors.like} />
-            <Text style={styles.quickTitle}>Favorites</Text>
-            <Text style={styles.quickSub}>{formatCount(favoriteVideos.length)} saved</Text>
-          </View>
-        </Tappable>
+        <QuickCard
+          icon="shuffle"
+          title="For You"
+          sub={`${formatCount(videos.length)} shuffled`}
+          onPress={() => playSource({ type: 'all', title: 'For You' })}
+        />
+        <QuickCard
+          icon="heart-outline"
+          title="Favorites"
+          sub={`${formatCount(favoriteVideos.length)} saved`}
+          onPress={() => playSource({ type: 'favorites', title: 'Favorites' })}
+        />
       </View>
 
-      {/* Albums */}
       {albums.length > 0 ? (
-        <View style={{ marginTop: 26 }}>
-          <SectionLabel style={{ marginBottom: 14 }}>Collections</SectionLabel>
+        <View style={{ marginTop: 28 }}>
+          <SectionLabel style={{ marginBottom: 14, paddingHorizontal: 2 }}>Collections</SectionLabel>
           <ScrollView horizontal showsHorizontalScrollIndicator={false} contentContainerStyle={{ paddingRight: 16 }}>
-            {albums.map((a) => (
+            {albums.map((a, i) => (
               <Tappable
                 key={a.id}
                 scaleTo={0.95}
-                style={styles.albumCard}
+                style={[styles.albumCard, { marginLeft: i === 0 ? 0 : 12 }]}
                 onPress={() => playSource({ type: 'album', albumId: a.id, title: a.title })}
               >
                 {a.cover ? (
                   <Thumb asset={a.cover} rounded={radius.md} showDuration={false} style={styles.albumCover} />
                 ) : (
                   <View style={[styles.albumCover, styles.albumCoverEmpty]}>
-                    <Ionicons name="albums" size={26} color={colors.textDim} />
+                    <Ionicons name="albums-outline" size={24} color={colors.textMuted} />
                   </View>
                 )}
                 <Text style={styles.albumTitle} numberOfLines={1}>{a.title}</Text>
@@ -87,22 +91,23 @@ export default function LibraryScreen() {
         </View>
       ) : null}
 
-      <SectionLabel style={{ marginTop: 26, marginBottom: 12 }}>All clips</SectionLabel>
+      <SectionLabel style={{ marginTop: 28, marginBottom: 12, paddingHorizontal: 2 }}>All clips</SectionLabel>
     </View>
   );
 
   return (
-    <View style={[styles.container, { paddingTop: insets.top + 8 }]}>
+    <View style={[styles.container, { paddingTop: insets.top + 10 }]}>
       <FlatList
         data={videos}
         keyExtractor={(item) => item.id}
         numColumns={COLS}
         ListHeaderComponent={Header}
+        ListHeaderComponentStyle={{ paddingHorizontal: GRID_PAD }}
         columnWrapperStyle={{ gap: GRID_GAP, paddingHorizontal: GRID_PAD }}
         contentContainerStyle={{ paddingBottom: 120, gap: GRID_GAP }}
         showsVerticalScrollIndicator={false}
         refreshControl={
-          <RefreshControl refreshing={loadingLibrary} onRefresh={refresh} tintColor={colors.violet} colors={[colors.violet]} />
+          <RefreshControl refreshing={loadingLibrary} onRefresh={refresh} tintColor={colors.white} colors={[colors.white]} />
         }
         renderItem={({ item, index }) => (
           <Tappable scaleTo={0.94} onPress={() => openAt(index)}>
@@ -111,7 +116,7 @@ export default function LibraryScreen() {
         )}
         ListEmptyComponent={
           <View style={styles.emptyGrid}>
-            <Ionicons name="videocam-outline" size={40} color={colors.textMuted} />
+            <Ionicons name="videocam-outline" size={38} color={colors.textMuted} />
             <Text style={styles.emptyGridText}>No videos found on this device yet.</Text>
           </View>
         }
@@ -122,19 +127,21 @@ export default function LibraryScreen() {
 
 const styles = StyleSheet.create({
   container: { flex: 1, backgroundColor: colors.bg },
-  h1: { color: colors.text, fontSize: 32, fontWeight: '900', letterSpacing: -0.6, paddingHorizontal: GRID_PAD },
-  sub: { color: colors.textDim, fontSize: 14, fontWeight: '600', marginTop: 6, paddingHorizontal: GRID_PAD },
-  quickRow: { flexDirection: 'row', gap: 12, marginTop: 22, paddingHorizontal: GRID_PAD },
+  h1: { color: colors.text, fontSize: 32, fontWeight: '800', letterSpacing: -0.7 },
+  sub: { color: colors.textDim, fontSize: 14, fontWeight: '500', marginTop: 6 },
+  quickRow: { flexDirection: 'row', gap: 12, marginTop: 22 },
   quickCard: {
     borderRadius: radius.lg,
     padding: 18,
-    height: 116,
+    height: 112,
     justifyContent: 'space-between',
+    backgroundColor: colors.surface,
+    borderWidth: 1,
+    borderColor: colors.hairline,
   },
-  quickCardAlt: { backgroundColor: colors.surface, borderWidth: 1, borderColor: colors.hairline },
-  quickTitle: { color: colors.white, fontSize: 18, fontWeight: '800', marginTop: 8 },
-  quickSub: { color: 'rgba(255,255,255,0.85)', fontSize: 12.5, fontWeight: '600' },
-  albumCard: { width: 132, marginLeft: GRID_PAD },
+  quickTitle: { color: colors.white, fontSize: 17, fontWeight: '800', marginTop: 8 },
+  quickSub: { color: colors.textDim, fontSize: 12.5, fontWeight: '600' },
+  albumCard: { width: 132 },
   albumCover: { width: 132, height: 132 },
   albumCoverEmpty: {
     borderRadius: radius.md,

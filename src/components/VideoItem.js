@@ -1,17 +1,16 @@
 import React, { useEffect, useRef, useState, useCallback } from 'react';
 import { View, Text, StyleSheet, Pressable, Animated, ActivityIndicator } from 'react-native';
 import { Video, ResizeMode } from 'expo-av';
-import { LinearGradient } from 'expo-linear-gradient';
 import { Ionicons } from '@expo/vector-icons';
 import * as MediaLibrary from 'expo-media-library';
 import { colors } from '../theme';
 import { prettyName, formatDuration } from '../lib/format';
 
-function RailAction({ icon, label, color = colors.white, onPress, filled }) {
+function RailAction({ icon, label, color = colors.white, onPress }) {
   const scale = useRef(new Animated.Value(1)).current;
   const bounce = () => {
     Animated.sequence([
-      Animated.spring(scale, { toValue: 1.25, useNativeDriver: true, speed: 50 }),
+      Animated.spring(scale, { toValue: 1.22, useNativeDriver: true, speed: 50 }),
       Animated.spring(scale, { toValue: 1, useNativeDriver: true, speed: 30 }),
     ]).start();
   };
@@ -24,8 +23,8 @@ function RailAction({ icon, label, color = colors.white, onPress, filled }) {
       style={styles.railBtn}
       hitSlop={6}
     >
-      <Animated.View style={[styles.railIcon, { transform: [{ scale }] }]}>
-        <Ionicons name={icon} size={30} color={color} />
+      <Animated.View style={{ transform: [{ scale }] }}>
+        <Ionicons name={icon} size={29} color={color} />
       </Animated.View>
       {label ? <Text style={styles.railLabel}>{label}</Text> : null}
     </Pressable>
@@ -48,7 +47,6 @@ export default function VideoItem({
 }) {
   const videoRef = useRef(null);
   const [uri, setUri] = useState(asset.localUri || asset.uri);
-  const [status, setStatus] = useState({});
   const [userPaused, setUserPaused] = useState(false);
   const [buffering, setBuffering] = useState(true);
 
@@ -58,7 +56,7 @@ export default function VideoItem({
   const lastTap = useRef(0);
   const tapTimer = useRef(null);
 
-  // Resolve a reliably-playable local uri.
+  // Resolve a reliably-playable local uri (only when needed).
   useEffect(() => {
     let alive = true;
     (async () => {
@@ -82,7 +80,6 @@ export default function VideoItem({
 
   const onStatus = useCallback(
     (s) => {
-      setStatus(s);
       if (!s.isLoaded) return;
       setBuffering(!!s.isBuffering && !s.isPlaying);
       if (s.durationMillis) {
@@ -93,11 +90,7 @@ export default function VideoItem({
   );
 
   const flashPause = (show) => {
-    Animated.timing(pauseIcon, {
-      toValue: show ? 1 : 0,
-      duration: 180,
-      useNativeDriver: true,
-    }).start();
+    Animated.timing(pauseIcon, { toValue: show ? 1 : 0, duration: 160, useNativeDriver: true }).start();
   };
 
   const burstHeart = () => {
@@ -111,7 +104,6 @@ export default function VideoItem({
   const handleTap = () => {
     const now = Date.now();
     if (now - lastTap.current < 260) {
-      // double tap -> like
       if (tapTimer.current) clearTimeout(tapTimer.current);
       lastTap.current = 0;
       if (!liked) onToggleLike && onToggleLike();
@@ -119,7 +111,6 @@ export default function VideoItem({
     } else {
       lastTap.current = now;
       tapTimer.current = setTimeout(() => {
-        // single tap -> play/pause
         setUserPaused((p) => {
           const np = !p;
           flashPause(np);
@@ -129,10 +120,7 @@ export default function VideoItem({
     }
   };
 
-  const progressWidth = progress.interpolate({
-    inputRange: [0, 1],
-    outputRange: ['0%', '100%'],
-  });
+  const progressWidth = progress.interpolate({ inputRange: [0, 1], outputRange: ['0%', '100%'] });
 
   return (
     <Pressable onPress={handleTap} style={[styles.page, { height }]}>
@@ -148,80 +136,45 @@ export default function VideoItem({
         onPlaybackStatusUpdate={onStatus}
       />
 
-      {/* Buffering spinner */}
       {active && buffering ? (
         <View style={styles.center} pointerEvents="none">
-          <ActivityIndicator size="large" color="rgba(255,255,255,0.9)" />
+          <ActivityIndicator size="large" color="rgba(255,255,255,0.85)" />
         </View>
       ) : null}
 
       {/* Pause glyph */}
       <Animated.View
-        style={[styles.center, { opacity: pauseIcon, transform: [{ scale: pauseIcon.interpolate({ inputRange: [0, 1], outputRange: [0.6, 1] }) }] }]}
+        style={[styles.center, { opacity: pauseIcon, transform: [{ scale: pauseIcon.interpolate({ inputRange: [0, 1], outputRange: [0.7, 1] }) }] }]}
         pointerEvents="none"
       >
         <View style={styles.playCircle}>
-          <Ionicons name="play" size={44} color={colors.white} />
+          <Ionicons name="play" size={40} color={colors.white} />
         </View>
       </Animated.View>
 
       {/* Double-tap heart burst */}
       <Animated.View
-        style={[
-          styles.center,
-          {
-            opacity: heart,
-            transform: [
-              { scale: heart.interpolate({ inputRange: [0, 1], outputRange: [0.3, 1.15] }) },
-              { rotate: '-12deg' },
-            ],
-          },
-        ]}
+        style={[styles.center, { opacity: heart, transform: [{ scale: heart.interpolate({ inputRange: [0, 1], outputRange: [0.4, 1.1] }) }] }]}
         pointerEvents="none"
       >
-        <Ionicons name="heart" size={128} color={colors.like} />
+        <Ionicons name="heart" size={120} color={colors.white} />
       </Animated.View>
 
-      {/* Bottom gradient for text legibility */}
-      <LinearGradient
-        colors={['transparent', 'rgba(0,0,0,0.15)', 'rgba(0,0,0,0.72)']}
-        style={[styles.bottomScrim, { height: height * 0.4 }]}
-        pointerEvents="none"
-      />
-
       {/* Right action rail */}
-      <View style={[styles.rail, { bottom: bottomInset + 24 }]}>
-        <RailAction
-          icon={liked ? 'heart' : 'heart-outline'}
-          color={liked ? colors.like : colors.white}
-          label="Like"
-          onPress={onToggleLike}
-        />
-        <RailAction
-          icon={globalMuted ? 'volume-mute' : 'volume-high'}
-          label={globalMuted ? 'Muted' : 'Sound'}
-          onPress={onToggleMute}
-        />
+      <View style={[styles.rail, { bottom: bottomInset + 20 }]}>
+        <RailAction icon={liked ? 'heart' : 'heart-outline'} label="Like" onPress={onToggleLike} />
+        <RailAction icon={globalMuted ? 'volume-mute' : 'volume-high'} label={globalMuted ? 'Muted' : 'Sound'} onPress={onToggleMute} />
         <RailAction icon="shuffle" label="Shuffle" onPress={onShuffle} />
-        <RailAction icon="information-circle-outline" label="Info" onPress={onOpenInfo} />
+        <RailAction icon="ellipsis-horizontal" label="Info" onPress={onOpenInfo} />
       </View>
 
       {/* Meta */}
-      <View style={[styles.meta, { bottom: bottomInset + 22 }]}>
+      <View style={[styles.meta, { bottom: bottomInset + 18 }]}>
         {collectionTitle ? (
-          <View style={styles.collPill}>
-            <Ionicons name="albums" size={12} color={colors.white} />
-            <Text style={styles.collText} numberOfLines={1}>
-              {collectionTitle}
-            </Text>
-          </View>
+          <Text style={styles.coll} numberOfLines={1}>{collectionTitle.toUpperCase()}</Text>
         ) : null}
-        <Text style={styles.title} numberOfLines={2}>
-          {prettyName(asset.filename)}
-        </Text>
-        <Text style={styles.sub}>
-          {formatDuration(asset.duration)} · {asset.width}×{asset.height}
-        </Text>
+        <Text style={styles.title} numberOfLines={2}>{prettyName(asset.filename)}</Text>
+        <Text style={styles.sub}>{formatDuration(asset.duration)} · {asset.width}×{asset.height}</Text>
       </View>
 
       {/* Progress bar */}
@@ -236,64 +189,50 @@ const styles = StyleSheet.create({
   page: { width: '100%', backgroundColor: colors.black, justifyContent: 'center' },
   center: { ...StyleSheet.absoluteFillObject, alignItems: 'center', justifyContent: 'center' },
   playCircle: {
-    width: 92,
-    height: 92,
-    borderRadius: 46,
-    backgroundColor: 'rgba(0,0,0,0.35)',
+    width: 84,
+    height: 84,
+    borderRadius: 42,
+    backgroundColor: 'rgba(0,0,0,0.4)',
     alignItems: 'center',
     justifyContent: 'center',
-    paddingLeft: 6,
+    paddingLeft: 5,
   },
-  bottomScrim: { position: 'absolute', left: 0, right: 0, bottom: 0 },
   rail: { position: 'absolute', right: 12, alignItems: 'center' },
-  railBtn: { alignItems: 'center', marginBottom: 22 },
-  railIcon: {
-    alignItems: 'center',
-    justifyContent: 'center',
-    textShadowColor: 'rgba(0,0,0,0.6)',
-  },
+  railBtn: { alignItems: 'center', marginBottom: 20 },
   railLabel: {
     color: colors.white,
     fontSize: 11,
     fontWeight: '700',
     marginTop: 5,
-    textShadowColor: 'rgba(0,0,0,0.8)',
-    textShadowRadius: 4,
+    textShadowColor: 'rgba(0,0,0,0.9)',
+    textShadowRadius: 5,
   },
-  meta: { position: 'absolute', left: 18, right: 86 },
-  collPill: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    alignSelf: 'flex-start',
-    backgroundColor: 'rgba(255,255,255,0.16)',
-    paddingHorizontal: 10,
-    paddingVertical: 5,
-    borderRadius: 999,
-    marginBottom: 10,
+  meta: { position: 'absolute', left: 18, right: 82 },
+  coll: {
+    color: 'rgba(255,255,255,0.7)',
+    fontSize: 11,
+    fontWeight: '800',
+    letterSpacing: 1.4,
+    marginBottom: 8,
+    textShadowColor: 'rgba(0,0,0,0.9)',
+    textShadowRadius: 5,
   },
-  collText: { color: colors.white, fontSize: 12, fontWeight: '700', marginLeft: 5, maxWidth: 200 },
   title: {
     color: colors.white,
-    fontSize: 19,
+    fontSize: 18,
     fontWeight: '800',
     letterSpacing: -0.2,
-    textShadowColor: 'rgba(0,0,0,0.6)',
-    textShadowRadius: 6,
+    textShadowColor: 'rgba(0,0,0,0.9)',
+    textShadowRadius: 8,
   },
   sub: {
-    color: 'rgba(255,255,255,0.82)',
+    color: 'rgba(255,255,255,0.78)',
     fontSize: 13,
     fontWeight: '600',
     marginTop: 5,
-    textShadowColor: 'rgba(0,0,0,0.6)',
-    textShadowRadius: 4,
+    textShadowColor: 'rgba(0,0,0,0.9)',
+    textShadowRadius: 5,
   },
-  progressTrack: {
-    position: 'absolute',
-    left: 0,
-    right: 0,
-    height: 3,
-    backgroundColor: 'rgba(255,255,255,0.16)',
-  },
-  progressFill: { height: 3, backgroundColor: colors.white },
+  progressTrack: { position: 'absolute', left: 0, right: 0, height: 2.5, backgroundColor: 'rgba(255,255,255,0.18)' },
+  progressFill: { height: 2.5, backgroundColor: colors.white },
 });

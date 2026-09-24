@@ -22,7 +22,7 @@ function Root() {
   if (booting) {
     return (
       <View style={styles.boot}>
-        <ActivityIndicator color={colors.violet} size="large" />
+        <ActivityIndicator color={colors.white} size="large" />
       </View>
     );
   }

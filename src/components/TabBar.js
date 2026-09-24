@@ -1,11 +1,9 @@
 import React from 'react';
 import { View, Text, StyleSheet, Pressable } from 'react-native';
-import { BlurView } from 'expo-blur';
-import { LinearGradient } from 'expo-linear-gradient';
 import { Ionicons } from '@expo/vector-icons';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import { useApp } from '../context/AppContext';
-import { colors, radius, brandGradient } from '../theme';
+import { colors } from '../theme';
 
 const TABS = [
   { key: 'feed', label: 'Reel', icon: 'play', iconOutline: 'play-outline' },
@@ -19,64 +17,50 @@ export default function TabBar() {
   const { tab, setTab, haptic } = useApp();
 
   return (
-    <View style={[styles.wrap, { bottom: Math.max(insets.bottom, 12) }]} pointerEvents="box-none">
-      <BlurView intensity={40} tint="dark" experimentalBlurMethod="dimezisBlurView" style={styles.bar}>
-        {TABS.map((t) => {
-          const active = tab === t.key;
-          return (
-            <Pressable
-              key={t.key}
-              style={styles.tab}
-              onPress={() => {
-                if (!active) haptic('select');
-                setTab(t.key);
-              }}
-            >
-              {active ? (
-                <LinearGradient
-                  colors={brandGradient}
-                  start={{ x: 0, y: 0 }}
-                  end={{ x: 1, y: 1 }}
-                  style={styles.activePill}
-                >
-                  <Ionicons name={t.icon} size={20} color={colors.white} />
-                </LinearGradient>
-              ) : (
-                <View style={styles.inactive}>
-                  <Ionicons name={t.iconOutline} size={22} color={colors.textDim} />
-                </View>
-              )}
-              <Text style={[styles.label, active && styles.labelActive]}>{t.label}</Text>
-            </Pressable>
-          );
-        })}
-      </BlurView>
+    <View style={[styles.bar, { paddingBottom: Math.max(insets.bottom, 10) }]}>
+      {TABS.map((t) => {
+        const active = tab === t.key;
+        return (
+          <Pressable
+            key={t.key}
+            style={styles.tab}
+            onPress={() => {
+              if (!active) haptic('select');
+              setTab(t.key);
+            }}
+          >
+            <View style={styles.dotWrap}>
+              <View style={[styles.dot, active && styles.dotActive]} />
+            </View>
+            <Ionicons
+              name={active ? t.icon : t.iconOutline}
+              size={23}
+              color={active ? colors.white : colors.textMuted}
+            />
+            <Text style={[styles.label, active && styles.labelActive]}>{t.label}</Text>
+          </Pressable>
+        );
+      })}
     </View>
   );
 }
 
 const styles = StyleSheet.create({
-  wrap: { position: 'absolute', left: 16, right: 16, alignItems: 'center' },
   bar: {
+    position: 'absolute',
+    left: 0,
+    right: 0,
+    bottom: 0,
     flexDirection: 'row',
-    width: '100%',
-    paddingVertical: 10,
-    paddingHorizontal: 8,
-    borderRadius: radius.xl,
-    overflow: 'hidden',
-    borderWidth: 1,
-    borderColor: 'rgba(255,255,255,0.12)',
-    backgroundColor: 'rgba(18,18,24,0.62)',
+    paddingTop: 10,
+    backgroundColor: colors.bgElevated,
+    borderTopWidth: StyleSheet.hairlineWidth,
+    borderTopColor: colors.hairline,
   },
   tab: { flex: 1, alignItems: 'center' },
-  activePill: {
-    width: 46,
-    height: 34,
-    borderRadius: 17,
-    alignItems: 'center',
-    justifyContent: 'center',
-  },
-  inactive: { width: 46, height: 34, alignItems: 'center', justifyContent: 'center' },
-  label: { color: colors.textMuted, fontSize: 10.5, fontWeight: '700', marginTop: 3 },
-  labelActive: { color: colors.text },
+  dotWrap: { height: 6, justifyContent: 'center', marginBottom: 4 },
+  dot: { width: 4, height: 4, borderRadius: 2, backgroundColor: 'transparent' },
+  dotActive: { backgroundColor: colors.white },
+  label: { color: colors.textMuted, fontSize: 10.5, fontWeight: '700', marginTop: 4, letterSpacing: 0.2 },
+  labelActive: { color: colors.white },
 });

@@ -16,12 +16,23 @@ const AppContext = createContext(null);
 export const useApp = () => useContext(AppContext);
 
 const MAX_VIDEOS = 4000;
+const FIRST_PAGE = 240; // enough to start the reel instantly
+const PAGE = 500; // background pages after that
 const MAX_ALBUMS = 80;
+
+// Map an expo-media-library permission response to our simple states.
+function mapPermission(res) {
+  if (!res) return 'denied';
+  const ok = res.granted === true || res.accessPrivileges === 'limited' || res.status === 'granted';
+  if (ok) return 'granted';
+  if (res.canAskAgain === false) return 'blocked';
+  return 'denied';
+}
 
 export function AppProvider({ children }) {
   const [booting, setBooting] = useState(true);
   const [seenOnboarding, setSeenOnboarding] = useState(false);
-  const [permission, setPermission] = useState('undetermined'); // undetermined | granted | denied
+  const [permission, setPermission] = useState('undetermined'); // undetermined | granted | denied | blocked
   const [loadingLibrary, setLoadingLibrary] = useState(false);
 
   const [videos, setVideos] = useState([]);
@@ -29,7 +40,7 @@ export function AppProvider({ children }) {
   const [favorites, setFavorites] = useState([]);
   const [settings, setSettingsState] = useState(defaultSettings);
 
-  const [tab, setTab] = useState('feed'); // feed | library | favorites | settings
+  const [tab, setTab] = useState('feed');
   const [feed, setFeed] = useState({ source: { type: 'all', title: 'For You' }, assets: [], startIndex: 0, seed: 0 });
 
   const favSet = useMemo(() => new Set(favorites), [favorites]);
@@ -42,12 +53,12 @@ export function AppProvider({ children }) {
         store.getFavorites(),
         store.getSettings(),
         store.getSeenOnboarding(),
-        MediaLibrary.getPermissionsAsync().catch(() => ({ status: 'undetermined' })),
+        MediaLibrary.getPermissionsAsync().catch(() => null),
       ]);
       setFavorites(fav);
       setSettingsState(s);
       setSeenOnboarding(seen);
-      const status = perm.granted ? 'granted' : perm.status === 'denied' ? 'denied' : 'undetermined';
+      const status = perm ? mapPermission(perm) : 'undetermined';
       setPermission(status);
       setBooting(false);
       if (status === 'granted') loadLibrary(true);
@@ -72,11 +83,9 @@ export function AppProvider({ children }) {
   const requestPermission = useCallback(async () => {
     try {
       const res = await MediaLibrary.requestPermissionsAsync();
-      const status = res.granted ? 'granted' : 'denied';
+      const status = mapPermission(res);
       setPermission(status);
-      if (status === 'granted') {
-        await loadLibrary(true);
-      }
+      if (status === 'granted') loadLibrary(true);
       return status;
     } catch (e) {
       setPermission('denied');
@@ -85,28 +94,52 @@ export function AppProvider({ children }) {
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, []);
 
-  // ---- library loading ----
+  // ---- library loading (staged: fast first page, rest in background) ----
   const loadLibrary = useCallback(async (resetFeed = false) => {
     setLoadingLibrary(true);
     try {
-      const page = await MediaLibrary.getAssetsAsync({
+      const first = await MediaLibrary.getAssetsAsync({
         mediaType: MediaLibrary.MediaType.video,
-        first: MAX_VIDEOS,
+        first: FIRST_PAGE,
         sortBy: [[MediaLibrary.SortBy.creationTime, false]],
       });
-      const assets = page.assets || [];
-      setVideos(assets);
-
+      const initial = first.assets || [];
+      setVideos(initial);
       if (resetFeed) {
-        const ordered = shuffleArray(assets);
-        setFeed({ source: { type: 'all', title: 'For You' }, assets: ordered, startIndex: 0, seed: seedRef.current });
+        setFeed({
+          source: { type: 'all', title: 'For You' },
+          assets: shuffleArray(initial),
+          startIndex: 0,
+          seed: seedRef.current,
+        });
       }
+      setLoadingLibrary(false);
 
-      // Collections (albums that contain videos) — loaded in the background.
-      loadAlbums();
+      // Background: pull the remaining videos, then compute collections.
+      (async () => {
+        let all = initial;
+        let cursor = first.endCursor;
+        let hasNext = first.hasNextPage;
+        while (hasNext && all.length < MAX_VIDEOS) {
+          try {
+            const page = await MediaLibrary.getAssetsAsync({
+              mediaType: MediaLibrary.MediaType.video,
+              first: PAGE,
+              after: cursor,
+              sortBy: [[MediaLibrary.SortBy.creationTime, false]],
+            });
+            all = all.concat(page.assets || []);
+            cursor = page.endCursor;
+            hasNext = page.hasNextPage;
+            setVideos([...all]);
+          } catch (e) {
+            break;
+          }
+        }
+        loadAlbums();
+      })();
     } catch (e) {
       setVideos([]);
-    } finally {
       setLoadingLibrary(false);
     }
     // eslint-disable-next-line react-hooks/exhaustive-deps
@@ -130,10 +163,7 @@ export function AppProvider({ children }) {
           }
         })
       );
-      const withVideos = counted
-        .filter((a) => a.count > 0)
-        .sort((x, y) => y.count - x.count);
-      setAlbums(withVideos);
+      setAlbums(counted.filter((a) => a.count > 0).sort((x, y) => y.count - x.count));
     } catch (e) {
       setAlbums([]);
     }
@@ -159,10 +189,7 @@ export function AppProvider({ children }) {
     [favSet, haptic]
   );
 
-  const favoriteVideos = useMemo(
-    () => videos.filter((v) => favSet.has(v.id)),
-    [videos, favSet]
-  );
+  const favoriteVideos = useMemo(() => videos.filter((v) => favSet.has(v.id)), [videos, favSet]);
 
   // ---- settings ----
   const updateSettings = useCallback((patch) => {

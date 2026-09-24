@@ -37,11 +37,14 @@ jobs:
           CI: "1"
           EXPO_NO_TELEMETRY: "1"
 
-      - name: Build release APK
+      - name: Build release APK (arm64 only, minified)
         run: |
           cd android
           chmod +x ./gradlew
-          ./gradlew assembleRelease --no-daemon --console=plain
+          ./gradlew assembleRelease --no-daemon --console=plain -PreactNativeArchitectures=arm64-v8a
+
+      - name: Report APK size
+        run: ls -lh android/app/build/outputs/apk/release/
 
       - name: Rename APK
         run: cp android/app/build/outputs/apk/release/app-release.apk MyCollectives.apk
