@@ -26,9 +26,8 @@ jobs:
           distribution: temurin
           java-version: 17
 
-      - name: Set up Android SDK
-        uses: android-actions/setup-android@v3
-
+      # ubuntu-latest ships a full Android SDK (ANDROID_HOME/ANDROID_SDK_ROOT set,
+      # licenses pre-accepted). Gradle auto-installs any missing build-tools/platform.
       - name: Install dependencies
         run: npm install --legacy-peer-deps --no-audit --no-fund
 
