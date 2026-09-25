@@ -95,6 +95,32 @@ export default function SettingsScreen() {
         </View>
       </View>
 
+      <SectionLabel style={{ marginTop: 26, marginBottom: 12, paddingHorizontal: 2 }}>Gestures</SectionLabel>
+      <View style={styles.card}>
+        <Row
+          icon="swap-vertical"
+          title="Swipe up for next"
+          desc="On: swipe up = next clip. Off: reversed"
+          value={settings.swipeUpForNext}
+          onValueChange={(v) => updateSettings({ swipeUpForNext: v })}
+        />
+        <Row
+          icon="play-forward"
+          title="Double-tap edges to seek"
+          desc="Double-tap the left/right edge to jump ±10s"
+          value={settings.doubleTapSeek}
+          onValueChange={(v) => updateSettings({ doubleTapSeek: v })}
+        />
+        <Row
+          icon="options-outline"
+          title="Scrubber when paused"
+          desc="Show a draggable timeline when you tap to pause"
+          value={settings.seekBarOnPause}
+          onValueChange={(v) => updateSettings({ seekBarOnPause: v })}
+          last
+        />
+      </View>
+
       <SectionLabel style={{ marginTop: 26, marginBottom: 12, paddingHorizontal: 2 }}>Library</SectionLabel>
       <View style={styles.card}>
         <Tappable style={styles.actionRow} onPress={refresh} scaleTo={0.98}>

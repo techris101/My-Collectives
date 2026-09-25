@@ -15,6 +15,9 @@ export const defaultSettings = {
   showInfo: true,
   hapticsOn: true,
   scrollSensitivity: 3, // 1 (long swipe) .. 5 (short swipe), continuous
+  swipeUpForNext: true, // true: swipe up = next clip (standard)
+  doubleTapSeek: true, // double-tap left/right edges to seek ±10s
+  seekBarOnPause: true, // show a draggable scrubber when paused
 };
 
 async function readJSON(key, fallback) {

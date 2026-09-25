@@ -1,5 +1,5 @@
 import React, { useCallback, useRef, useState, useEffect } from 'react';
-import { View, Text, StyleSheet, FlatList, Modal, Pressable, ScrollView, ActivityIndicator } from 'react-native';
+import { View, Text, StyleSheet, FlatList, Modal, Pressable, ScrollView, ActivityIndicator, useWindowDimensions } from 'react-native';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import { Ionicons } from '@expo/vector-icons';
 import * as Sharing from 'expo-sharing';
@@ -24,6 +24,7 @@ function sensFraction(s) {
 
 export default function FeedScreen() {
   const insets = useSafeAreaInsets();
+  const { width: screenW } = useWindowDimensions();
   const { feed, settings, updateSettings, isFavorite, toggleFavorite, reshuffle, haptic } = useApp();
 
   const [activeIndex, setActiveIndex] = useState(feed.startIndex || 0);
@@ -89,22 +90,30 @@ export default function FeedScreen() {
     [haptic]
   );
 
-  // Custom, adjustable snap paging. Advance when the drag passes a
-  // sensitivity-controlled fraction of the screen (or on a flick).
+  // Custom, adjustable snap paging. Direction is derived purely from the drag
+  // distance sign (deterministic — no velocity, which is sign-inconsistent
+  // across platforms and caused the reversed/erratic feel). Sensitivity sets
+  // how far you must drag; a quick flick lowers that threshold.
   const dragStartY = useRef(0);
+  const dragStartT = useRef(0);
   const onScrollBeginDrag = useCallback((e) => {
     dragStartY.current = e.nativeEvent.contentOffset.y;
+    dragStartT.current = Date.now();
   }, []);
   const onScrollEndDrag = useCallback(
     (e) => {
-      const { contentOffset, velocity } = e.nativeEvent;
-      const delta = contentOffset.y - dragStartY.current;
-      const threshold = viewportH * sensFraction(settings.scrollSensitivity);
-      const vy = velocity ? velocity.y : 0;
-      let target = activeIndex;
-      if (delta > threshold || vy > 0.6) target = activeIndex + 1;
-      else if (delta < -threshold || vy < -0.6) target = activeIndex - 1;
-      target = Math.max(0, Math.min((feed.assets?.length || 1) - 1, target));
+      if (!viewportH) return;
+      const startIndex = Math.round(dragStartY.current / viewportH);
+      const delta = e.nativeEvent.contentOffset.y - dragStartY.current;
+      const dt = Math.max(1, Date.now() - dragStartT.current);
+      const isFlick = Math.abs(delta) / dt > 0.4; // px/ms
+      const threshold = isFlick ? viewportH * 0.06 : viewportH * sensFraction(settings.scrollSensitivity);
+      // delta > 0 means the finger swiped UP (content moved up → next clip).
+      let step = 0;
+      if (delta > threshold) step = 1;
+      else if (delta < -threshold) step = -1;
+      const dir = settings.swipeUpForNext ? 1 : -1;
+      const target = Math.max(0, Math.min((feed.assets?.length || 1) - 1, startIndex + step * dir));
       setActiveIndex(target);
       requestAnimationFrame(() => {
         try {
@@ -112,7 +121,7 @@ export default function FeedScreen() {
         } catch (err) {}
       });
     },
-    [viewportH, settings.scrollSensitivity, activeIndex, feed.assets]
+    [viewportH, settings.scrollSensitivity, settings.swipeUpForNext, feed.assets]
   );
   const onMomentumEnd = useCallback(
     (e) => {
@@ -134,12 +143,15 @@ export default function FeedScreen() {
         <VideoItem
           asset={item}
           height={viewportH}
+          width={screenW}
           active={index === activeIndex}
           globalMuted={globalMuted}
           loop={settings.loop}
           liked={isFavorite(item.id)}
           collectionTitle={feed.source?.title}
           bottomInset={bottomInset}
+          doubleTapSeek={settings.doubleTapSeek}
+          seekBarOnPause={settings.seekBarOnPause}
           onToggleMute={toggleMute}
           onToggleLike={() => toggleFavorite(item.id)}
           onShare={() => onShare(item)}
@@ -148,7 +160,7 @@ export default function FeedScreen() {
         />
       );
     },
-    [activeIndex, viewportH, globalMuted, settings.loop, isFavorite, feed.source, bottomInset, toggleMute, toggleFavorite, onShare, advanceFrom]
+    [activeIndex, viewportH, screenW, globalMuted, settings.loop, settings.doubleTapSeek, settings.seekBarOnPause, isFavorite, feed.source, bottomInset, toggleMute, toggleFavorite, onShare, advanceFrom]
   );
 
   const empty = !feed.assets || feed.assets.length === 0;

@@ -16,7 +16,7 @@
     "assetBundlePatterns": ["**/*"],
     "android": {
       "package": "com.techris.mycollectives",
-      "versionCode": 4,
+      "versionCode": 5,
       "backgroundColor": "#000000",
       "adaptiveIcon": {
         "foregroundImage": "./assets/adaptive-icon.png",
