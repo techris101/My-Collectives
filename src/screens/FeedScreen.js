@@ -1,5 +1,5 @@
 import React, { useCallback, useRef, useState, useEffect } from 'react';
-import { View, Text, StyleSheet, FlatList, Modal, Pressable, ScrollView } from 'react-native';
+import { View, Text, StyleSheet, FlatList, Modal, Pressable, ScrollView, ActivityIndicator } from 'react-native';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import { Ionicons } from '@expo/vector-icons';
 import { useApp } from '../context/AppContext';
@@ -49,6 +49,19 @@ export default function FeedScreen() {
     });
   }, [haptic, updateSettings]);
 
+  // If a clip can't start (bad/corrupt file), quietly skip to the next.
+  const advanceFrom = useCallback(
+    (index) => {
+      const next = index + 1;
+      if (next < feed.assets.length && listRef.current) {
+        try {
+          listRef.current.scrollToIndex({ index: next, animated: true });
+        } catch (e) {}
+      }
+    },
+    [feed.assets.length]
+  );
+
   const renderItem = useCallback(
     ({ item, index }) => {
       const distance = Math.abs(index - activeIndex);
@@ -70,10 +83,11 @@ export default function FeedScreen() {
           onToggleLike={() => toggleFavorite(item.id)}
           onShuffle={reshuffle}
           onOpenInfo={() => setInfoAsset(item)}
+          onFailed={() => advanceFrom(index)}
         />
       );
     },
-    [activeIndex, viewportH, globalMuted, settings.loop, isFavorite, feed.source, bottomInset, toggleMute, toggleFavorite, reshuffle]
+    [activeIndex, viewportH, globalMuted, settings.loop, isFavorite, feed.source, bottomInset, toggleMute, toggleFavorite, reshuffle, advanceFrom]
   );
 
   const empty = !feed.assets || feed.assets.length === 0;
@@ -127,7 +141,36 @@ export default function FeedScreen() {
 }
 
 function EmptyFeed({ insets }) {
-  const { refresh, loadingLibrary, setTab } = useApp();
+  const { refresh, loadingLibrary, libError, setTab } = useApp();
+
+  if (loadingLibrary) {
+    return (
+      <View style={[styles.empty, { paddingTop: insets.top + 96 }]}>
+        <ActivityIndicator size="large" color={colors.white} />
+        <Text style={[styles.emptyTitle, { marginTop: 22 }]}>Scanning your library…</Text>
+        <Text style={styles.emptyText}>Getting your first clips ready. A large library can take a couple of seconds.</Text>
+      </View>
+    );
+  }
+
+  if (libError) {
+    return (
+      <View style={[styles.empty, { paddingTop: insets.top + 80 }]}>
+        <View style={styles.emptyOrb}>
+          <Ionicons name="alert-circle-outline" size={40} color={colors.textDim} />
+        </View>
+        <Text style={styles.emptyTitle}>Couldn't read your videos</Text>
+        <Text style={styles.emptyText}>
+          {libError === 'timeout'
+            ? 'Your library is taking unusually long to read.'
+            : 'Something went wrong reading your media.'}{' '}
+          Tap retry to try again.
+        </Text>
+        <PrimaryButton label="Retry" icon="refresh" onPress={refresh} style={{ marginTop: 26 }} />
+      </View>
+    );
+  }
+
   return (
     <View style={[styles.empty, { paddingTop: insets.top + 60 }]}>
       <View style={styles.emptyOrb}>
@@ -139,7 +182,7 @@ function EmptyFeed({ insets }) {
       </Text>
       <PrimaryButton label="Browse library" icon="grid-outline" onPress={() => setTab('library')} style={{ marginTop: 26 }} />
       <Pressable style={styles.emptyLink} onPress={refresh}>
-        <Text style={styles.emptyLinkText}>{loadingLibrary ? 'Scanning…' : 'Rescan device'}</Text>
+        <Text style={styles.emptyLinkText}>Rescan device</Text>
       </Pressable>
     </View>
   );

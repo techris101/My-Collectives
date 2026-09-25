@@ -44,11 +44,14 @@ export default function VideoItem({
   onToggleLike,
   onShuffle,
   onOpenInfo,
+  onFailed,
 }) {
   const videoRef = useRef(null);
   const [uri, setUri] = useState(asset.localUri || asset.uri);
   const [userPaused, setUserPaused] = useState(false);
   const [buffering, setBuffering] = useState(true);
+  const failTimer = useRef(null);
+  const startedRef = useRef(false);
 
   const progress = useRef(new Animated.Value(0)).current;
   const pauseIcon = useRef(new Animated.Value(0)).current;
@@ -71,22 +74,39 @@ export default function VideoItem({
     };
   }, [asset]);
 
-  // Reset paused state when this item becomes active.
+  // Reset paused state + start a watchdog when this item becomes active.
   useEffect(() => {
-    if (active) setUserPaused(false);
+    if (!active) return;
+    setUserPaused(false);
+    startedRef.current = false;
+    if (failTimer.current) clearTimeout(failTimer.current);
+    failTimer.current = setTimeout(() => {
+      if (!startedRef.current) onFailed && onFailed();
+    }, 9000);
+    return () => {
+      if (failTimer.current) clearTimeout(failTimer.current);
+    };
   }, [active]);
 
   const shouldPlay = active && !userPaused;
 
   const onStatus = useCallback(
     (s) => {
-      if (!s.isLoaded) return;
+      if (!s.isLoaded) {
+        // A hard playback error — skip to the next clip.
+        if (s.error && active) onFailed && onFailed();
+        return;
+      }
       setBuffering(!!s.isBuffering && !s.isPlaying);
+      if (s.isPlaying || s.positionMillis > 0) {
+        startedRef.current = true;
+        if (failTimer.current) clearTimeout(failTimer.current);
+      }
       if (s.durationMillis) {
         progress.setValue(Math.min(1, s.positionMillis / s.durationMillis));
       }
     },
-    [progress]
+    [progress, active, onFailed]
   );
 
   const flashPause = (show) => {
