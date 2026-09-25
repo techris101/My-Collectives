@@ -42,7 +42,7 @@ export default function VideoItem({
   bottomInset,
   onToggleMute,
   onToggleLike,
-  onShuffle,
+  onShare,
   onOpenInfo,
   onFailed,
 }) {
@@ -184,7 +184,7 @@ export default function VideoItem({
       <View style={[styles.rail, { bottom: bottomInset + 20 }]}>
         <RailAction icon={liked ? 'heart' : 'heart-outline'} label="Like" onPress={onToggleLike} />
         <RailAction icon={globalMuted ? 'volume-mute' : 'volume-high'} label={globalMuted ? 'Muted' : 'Sound'} onPress={onToggleMute} />
-        <RailAction icon="shuffle" label="Shuffle" onPress={onShuffle} />
+        <RailAction icon="share-social-outline" label="Share" onPress={onShare} />
         <RailAction icon="ellipsis-horizontal" label="Info" onPress={onOpenInfo} />
       </View>
 

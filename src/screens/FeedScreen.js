@@ -2,6 +2,8 @@ import React, { useCallback, useRef, useState, useEffect } from 'react';
 import { View, Text, StyleSheet, FlatList, Modal, Pressable, ScrollView, ActivityIndicator } from 'react-native';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import { Ionicons } from '@expo/vector-icons';
+import * as Sharing from 'expo-sharing';
+import * as MediaLibrary from 'expo-media-library';
 import { useApp } from '../context/AppContext';
 import VideoItem from '../components/VideoItem';
 import { colors, radius } from '../theme';
@@ -9,8 +11,16 @@ import { IconButton, PrimaryButton } from '../components/ui';
 import { prettyName, formatDuration } from '../lib/format';
 
 const TAB_H = 62; // matches the bottom TabBar content height
-// Only mount video players for items within this many steps of the active one.
-const WINDOW = 2;
+// Only mount video players for items within this many steps of the active one
+// (current + 1 ahead + 1 behind = 3 live players → smooth, low memory).
+const WINDOW = 1;
+
+// Map swipe-sensitivity (1..5) to the fraction of the screen you must drag to
+// advance a clip. 1 = long swipe (0.45), 5 = short swipe (0.12).
+function sensFraction(s) {
+  const c = Math.max(1, Math.min(5, s || 3));
+  return 0.45 - (c - 1) * 0.0825;
+}
 
 export default function FeedScreen() {
   const insets = useSafeAreaInsets();
@@ -62,6 +72,57 @@ export default function FeedScreen() {
     [feed.assets.length]
   );
 
+  // Share the actual video file via the system share sheet.
+  const onShare = useCallback(
+    async (asset) => {
+      try {
+        haptic('light');
+        let uri = asset.localUri;
+        if (!uri) {
+          const info = await MediaLibrary.getAssetInfoAsync(asset);
+          uri = info.localUri || asset.uri;
+        }
+        const can = await Sharing.isAvailableAsync();
+        if (can && uri) await Sharing.shareAsync(uri);
+      } catch (e) {}
+    },
+    [haptic]
+  );
+
+  // Custom, adjustable snap paging. Advance when the drag passes a
+  // sensitivity-controlled fraction of the screen (or on a flick).
+  const dragStartY = useRef(0);
+  const onScrollBeginDrag = useCallback((e) => {
+    dragStartY.current = e.nativeEvent.contentOffset.y;
+  }, []);
+  const onScrollEndDrag = useCallback(
+    (e) => {
+      const { contentOffset, velocity } = e.nativeEvent;
+      const delta = contentOffset.y - dragStartY.current;
+      const threshold = viewportH * sensFraction(settings.scrollSensitivity);
+      const vy = velocity ? velocity.y : 0;
+      let target = activeIndex;
+      if (delta > threshold || vy > 0.6) target = activeIndex + 1;
+      else if (delta < -threshold || vy < -0.6) target = activeIndex - 1;
+      target = Math.max(0, Math.min((feed.assets?.length || 1) - 1, target));
+      setActiveIndex(target);
+      requestAnimationFrame(() => {
+        try {
+          listRef.current?.scrollToIndex({ index: target, animated: true });
+        } catch (err) {}
+      });
+    },
+    [viewportH, settings.scrollSensitivity, activeIndex, feed.assets]
+  );
+  const onMomentumEnd = useCallback(
+    (e) => {
+      if (!viewportH) return;
+      const idx = Math.round(e.nativeEvent.contentOffset.y / viewportH);
+      setActiveIndex(Math.max(0, Math.min((feed.assets?.length || 1) - 1, idx)));
+    },
+    [viewportH, feed.assets]
+  );
+
   const renderItem = useCallback(
     ({ item, index }) => {
       const distance = Math.abs(index - activeIndex);
@@ -81,13 +142,13 @@ export default function FeedScreen() {
           bottomInset={bottomInset}
           onToggleMute={toggleMute}
           onToggleLike={() => toggleFavorite(item.id)}
-          onShuffle={reshuffle}
+          onShare={() => onShare(item)}
           onOpenInfo={() => setInfoAsset(item)}
           onFailed={() => advanceFrom(index)}
         />
       );
     },
-    [activeIndex, viewportH, globalMuted, settings.loop, isFavorite, feed.source, bottomInset, toggleMute, toggleFavorite, reshuffle, advanceFrom]
+    [activeIndex, viewportH, globalMuted, settings.loop, isFavorite, feed.source, bottomInset, toggleMute, toggleFavorite, onShare, advanceFrom]
   );
 
   const empty = !feed.assets || feed.assets.length === 0;
@@ -103,15 +164,17 @@ export default function FeedScreen() {
           data={feed.assets}
           keyExtractor={(item, i) => `${item.id}-${i}`}
           renderItem={renderItem}
-          pagingEnabled
           showsVerticalScrollIndicator={false}
           getItemLayout={getItemLayout}
           initialScrollIndex={Math.min(feed.startIndex || 0, feed.assets.length - 1)}
-          windowSize={7}
-          maxToRenderPerBatch={3}
+          windowSize={5}
+          maxToRenderPerBatch={2}
           initialNumToRender={2}
           removeClippedSubviews={false}
           decelerationRate="fast"
+          onScrollBeginDrag={onScrollBeginDrag}
+          onScrollEndDrag={onScrollEndDrag}
+          onMomentumScrollEnd={onMomentumEnd}
           onViewableItemsChanged={onViewable}
           viewabilityConfig={viewConfig}
         />

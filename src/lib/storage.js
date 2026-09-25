@@ -14,6 +14,7 @@ export const defaultSettings = {
   startMuted: false,
   showInfo: true,
   hapticsOn: true,
+  scrollSensitivity: 3, // 1 (long swipe) .. 5 (short swipe), continuous
 };
 
 async function readJSON(key, fallback) {

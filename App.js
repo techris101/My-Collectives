@@ -12,6 +12,7 @@ import FavoritesScreen from './src/screens/FavoritesScreen';
 import SettingsScreen from './src/screens/SettingsScreen';
 import TabBar from './src/components/TabBar';
 import LaunchSplash from './src/components/LaunchSplash';
+import ErrorBoundary from './src/components/ErrorBoundary';
 
 function Root() {
   const { booting, permission, seenOnboarding, tab } = useApp();
@@ -55,12 +56,14 @@ function Root() {
 export default function App() {
   return (
     <SafeAreaProvider>
-      <AppProvider>
-        <View style={styles.app}>
-          <Root />
-          <LaunchSplash />
-        </View>
-      </AppProvider>
+      <ErrorBoundary>
+        <AppProvider>
+          <View style={styles.app}>
+            <Root />
+            <LaunchSplash />
+          </View>
+        </AppProvider>
+      </ErrorBoundary>
     </SafeAreaProvider>
   );
 }

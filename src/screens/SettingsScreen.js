@@ -1,10 +1,11 @@
-import React from 'react';
+import React, { useState } from 'react';
 import { View, Text, StyleSheet, ScrollView, Switch, Linking } from 'react-native';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import { Ionicons } from '@expo/vector-icons';
 import { useApp } from '../context/AppContext';
 import { colors, radius } from '../theme';
 import { SectionLabel, Tappable } from '../components/ui';
+import Slider from '../components/Slider';
 import { formatCount } from '../lib/format';
 
 function Row({ icon, title, desc, value, onValueChange, last }) {
@@ -40,6 +41,7 @@ function Stat({ num, label }) {
 export default function SettingsScreen() {
   const insets = useSafeAreaInsets();
   const { settings, updateSettings, videos, favoriteVideos, albums, refresh } = useApp();
+  const [sens, setSens] = useState(settings.scrollSensitivity ?? 3);
 
   return (
     <ScrollView
@@ -67,6 +69,30 @@ export default function SettingsScreen() {
       <SectionLabel style={{ marginTop: 26, marginBottom: 12, paddingHorizontal: 2 }}>Feel</SectionLabel>
       <View style={styles.card}>
         <Row icon="phone-portrait-outline" title="Haptics" desc="Subtle taps on likes and shuffles" value={settings.hapticsOn} onValueChange={(v) => updateSettings({ hapticsOn: v })} last />
+      </View>
+
+      <SectionLabel style={{ marginTop: 26, marginBottom: 12, paddingHorizontal: 2 }}>Scrolling</SectionLabel>
+      <View style={styles.card}>
+        <View style={styles.sliderRow}>
+          <View style={styles.sliderHead}>
+            <View style={{ flex: 1 }}>
+              <Text style={styles.rowTitle}>Swipe sensitivity</Text>
+              <Text style={styles.rowDesc}>How short a swipe moves to the next clip</Text>
+            </View>
+            <Text style={styles.sensValue}>{sens.toFixed(1)}</Text>
+          </View>
+          <Slider
+            value={sens}
+            min={1}
+            max={5}
+            onChange={setSens}
+            onComplete={(v) => updateSettings({ scrollSensitivity: v })}
+          />
+          <View style={styles.sliderLabels}>
+            <Text style={styles.sliderHint}>Longer swipe</Text>
+            <Text style={styles.sliderHint}>Shorter swipe</Text>
+          </View>
+        </View>
       </View>
 
       <SectionLabel style={{ marginTop: 26, marginBottom: 12, paddingHorizontal: 2 }}>Library</SectionLabel>
@@ -140,6 +166,11 @@ const styles = StyleSheet.create({
   },
   rowTitle: { color: colors.text, fontSize: 15.5, fontWeight: '700' },
   rowDesc: { color: colors.textMuted, fontSize: 12.5, fontWeight: '500', marginTop: 2 },
+  sliderRow: { paddingVertical: 16 },
+  sliderHead: { flexDirection: 'row', alignItems: 'center', marginBottom: 6 },
+  sensValue: { color: colors.white, fontSize: 16, fontWeight: '800', marginLeft: 12 },
+  sliderLabels: { flexDirection: 'row', justifyContent: 'space-between', marginTop: 2 },
+  sliderHint: { color: colors.textMuted, fontSize: 11.5, fontWeight: '600' },
   about: { alignItems: 'center', marginTop: 40, paddingHorizontal: 20 },
   aboutTitle: { color: colors.text, fontSize: 19, fontWeight: '800', letterSpacing: -0.3 },
   aboutText: { color: colors.textDim, fontSize: 13.5, lineHeight: 20, textAlign: 'center', marginTop: 10 },
